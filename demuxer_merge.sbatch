@@ -4,7 +4,7 @@
 #SBATCH --gpus=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=50G
-#SBATCH --time=0-00:10:00
+#SBATCH --time=0-12:00:00
 #SBATCH --output=slurm_logs/demuxer-%j.out
 #SBATCH --error=slurm_logs/demuxer-%j.err
 #SBATCH --mail-user=rodell@stanford.edu

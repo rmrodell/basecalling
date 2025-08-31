@@ -1,10 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=dorado_basecaller_sup
+#SBATCH --job-name=dorado_basecaller_sup-%A_%a
 #SBATCH --partition=gpu
 #SBATCH --gpus=1
+#SBATCH -C '[GPU_GEN:HPR|GPU_GEN:LOV|GPU_GEN:VLT|GPU_GEN:TUR]'
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=20G
-#SBATCH --time=0-03:00:00
+#SBATCH --time=0-14:00:00
 #SBATCH --output=slurm_logs/basecaller-%A_%a.out
 #SBATCH --error=slurm_logs/basecaller-%A_%a.err
 #SBATCH --mail-user=rodell@stanford.edu
