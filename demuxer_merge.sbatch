@@ -2,6 +2,7 @@
 #SBATCH --job-name=dorado_demuxer
 #SBATCH --partition=gpu
 #SBATCH --gpus=1
+#SBATCH -C '[GPU_GEN:HPR|GPU_GEN:LOV|GPU_GEN:VLT]'
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=50G
 #SBATCH --time=0-12:00:00
