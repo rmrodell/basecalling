@@ -18,17 +18,17 @@
 
 # The main project directory where all output will be created.
 # A unique directory is recommended for each sequencing run.
-OUTPUT_DIR="/scratch/groups/nicolemm/rodell/basecalling/InVitro_SHAPE_Rep2_20250731"
+OUTPUT_DIR="/scratch/groups/nicolemm/rodell/basecalling/InVitro_SHAPE_Rep1_20241209"
 
 # The directory where the sbatch scripts are located.
 SCRIPT_DIR="/home/users/rodell/basecalling"
 
 # The SINGLE directory containing all your input .pod5 files for this run.
-POD5_DIR="/scratch/groups/nicolemm/rodell/basecalling/InVitro_SHAPE_Rep2_20250731/pod5"
+POD5_DIR="/scratch/groups/nicolemm/rodell/basecalling/InVitro_SHAPE_Rep1_20241209/pod5"
 
 # The number of parallel basecalling jobs you want to run.
 # More batches can speed up basecalling but may use more resources, potentially slowing your place in the queue.
-NUM_BATCHES=25
+NUM_BATCHES=3
 
 # The maximum number of basecalling jobs allowed to run at the same time.
 MAX_CONCURRENT_JOBS=50
