@@ -9,32 +9,62 @@
 #    merges the resulting BAM files, and then demultiplexes the final merged file.
 #
 # HOW TO USE:
-# 1. Edit the "USER CONFIGURATION" section below.
-# 2. Make this script executable: chmod +x run_basecaller_sup_pipeline.sh
-# 3. Run from the login node: ./run_basecaller_sup_pipeline.sh
+# Run this script with the following command-line arguments:
+# ./run_basecaller_sup_pipeline.sh -o <output_dir> -s <script_dir> -p <pod5_dir> -b <num_batches> -m <max_concurrent_jobs>
 #
+#  -o : The main project directory where all output will be created.  (REQUIRED)
+#  -s : The directory where the sbatch scripts are located.  (REQUIRED)
+#  -p : The SINGLE directory containing all your input .pod5 files for this run. (REQUIRED)
+#  -b : The number of parallel basecalling jobs you want to run.  Defaults to 3.
+#  -m : The maximum number of basecalling jobs allowed to run at the same time. Defaults to 50.
+#
+# --- USER CONFIGURATION (via command-line arguments) ---
 
-# --- USER CONFIGURATION ---
-
-# The main project directory where all output will be created.
-# A unique directory is recommended for each sequencing run.
-OUTPUT_DIR="/scratch/groups/nicolemm/rodell/basecalling/InVitro_SHAPE_Rep1_20241209"
-
-# The directory where the sbatch scripts are located.
-SCRIPT_DIR="/home/users/rodell/basecalling"
-
-# The SINGLE directory containing all your input .pod5 files for this run.
-POD5_DIR="/scratch/groups/nicolemm/rodell/basecalling/InVitro_SHAPE_Rep1_20241209/pod5"
-
-# The number of parallel basecalling jobs you want to run.
-# More batches can speed up basecalling but may use more resources, potentially slowing your place in the queue.
-NUM_BATCHES=3
-
-# The maximum number of basecalling jobs allowed to run at the same time.
+# Default values
+OUTPUT_DIR=""
+SCRIPT_DIR=""
+POD5_DIR=""
+NUM_BATCHES=10
 MAX_CONCURRENT_JOBS=50
 
 # --- END USER CONFIGURATION ---
 
+# --- HELPER FUNCTIONS ---
+
+# Function to display usage and exit.
+usage() {
+  echo "Usage: $0 -o <output_dir> -s <script_dir> -p <pod5_dir> [-b <num_batches>] [-m <max_concurrent_jobs>]"
+  echo "  -o  --output_dir      The main project directory for all output.  (REQUIRED)"
+  echo "  -s  --script_dir      The directory containing the sbatch scripts.  (REQUIRED)"
+  echo "  -p  --pod5_dir        The directory containing the input .pod5 files. (REQUIRED)"
+  echo "  -b  --num_batches     The number of parallel basecalling jobs. (Default: 10)"
+  echo "  -m  --max_concurrent  The maximum number of concurrent jobs. (Default: 50)"
+  exit 1
+}
+
+# Parse command-line arguments using getopts
+while getopts ":o:s:p:b:m:" opt; do
+  case "$opt" in
+    o) OUTPUT_DIR="$OPTARG" ;;
+    s) SCRIPT_DIR="$OPTARG" ;;
+    p) POD5_DIR="$OPTARG" ;;
+    b) NUM_BATCHES="$OPTARG" ;;
+    m) MAX_CONCURRENT_JOBS="$OPTARG" ;;
+    \?) echo "Invalid option: -$OPTARG" >&2; usage ;;
+    :) echo "Option -$OPTARG requires an argument." >&2; usage ;;
+  esac
+done
+
+# Shift the arguments to remove the processed options
+shift $((OPTIND-1))
+
+# Check for required arguments
+if [ -z "$OUTPUT_DIR" ] || [ -z "$SCRIPT_DIR" ] || [ -z "$POD5_DIR" ]; then
+    echo "ERROR: Missing required arguments."
+    usage
+fi
+
+# Make directories
 LOG_FILE="$OUTPUT_DIR/pipeline_setup.log"
 mkdir -p "$OUTPUT_DIR"
 
