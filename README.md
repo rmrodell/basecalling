@@ -30,6 +30,11 @@ To change any parameters around basecalling (kit, basecalling model, modified ba
 dorado basecaller sup "$INPUT_DIR" \
     --kit-name EXP-PBC096 \
     --no-trim > "$BAM_OUTPUT_DIR/basecalled.bam"
+
+dorado demux --output-dir "$FINAL_RESULTS_DIR" \
+    --no-trim \
+    --no-classify \
+    "$MERGED_BAM_FILE"
 ```
 
 Basecalling outputs a bam file, which is then demultiplexed by barcode into a single bam file per barcode.
