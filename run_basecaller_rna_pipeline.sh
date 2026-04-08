@@ -1,0 +1,149 @@
+#!/bin/bash
+#
+# MASTER CONTROLLER for the Dorado RNA Basecalling Pipeline
+#
+# WHAT IT DOES:
+# 1. Prepares the workspace by distributing input .pod5 files into batches.
+# 2. Submits Stage 1: A parallel job array to basecall all batches into BAM files.
+# 3. Submits Stage 2: A single job that waits for all basecalling to finish and
+#    merges the resulting BAM files.
+#
+# HOW TO USE:
+# Run this script with the following command-line arguments:
+# ./run_basecaller_rna_pipeline.sh -o <output_dir> -s <script_dir> -p <pod5_dir> -b <num_batches> -m <max_concurrent_jobs>
+#
+#  -o : The main project directory where all output will be created.  (REQUIRED)
+#  -s : The directory where the sbatch scripts are located.  (REQUIRED)
+#  -p : The SINGLE directory containing all your input .pod5 files for this run. (REQUIRED)
+#  -b : The number of parallel basecalling jobs you want to run.  Defaults to 3.
+#  -m : The maximum number of basecalling jobs allowed to run at the same time. Defaults to 50.
+#
+# --- USER CONFIGURATION (via command-line arguments) ---
+
+# Default values
+OUTPUT_DIR=""
+SCRIPT_DIR=""
+POD5_DIR=""
+NUM_BATCHES=10
+MAX_CONCURRENT_JOBS=50
+
+# --- END USER CONFIGURATION ---
+
+# --- HELPER FUNCTIONS ---
+
+# Function to display usage and exit.
+usage() {
+  echo "Usage: $0 -o <output_dir> -s <script_dir> -p <pod5_dir> [-b <num_batches>] [-m <max_concurrent_jobs>]"
+  echo "  -o  --output_dir      The main project directory for all output.  (REQUIRED)"
+  echo "  -s  --script_dir      The directory containing the sbatch scripts.  (REQUIRED)"
+  echo "  -p  --pod5_dir        The directory containing the input .pod5 files. (REQUIRED)"
+  echo "  -b  --num_batches     The number of parallel basecalling jobs. (Default: 10)"
+  echo "  -m  --max_concurrent  The maximum number of concurrent jobs. (Default: 50)"
+  exit 1
+}
+
+# Parse command-line arguments using getopts
+while getopts ":o:s:p:b:m:" opt; do
+  case "$opt" in
+    o) OUTPUT_DIR="$OPTARG" ;;
+    s) SCRIPT_DIR="$OPTARG" ;;
+    p) POD5_DIR="$OPTARG" ;;
+    b) NUM_BATCHES="$OPTARG" ;;
+    m) MAX_CONCURRENT_JOBS="$OPTARG" ;;
+    \?) echo "Invalid option: -$OPTARG" >&2; usage ;;
+    :) echo "Option -$OPTARG requires an argument." >&2; usage ;;
+  esac
+done
+
+# Shift the arguments to remove the processed options
+shift $((OPTIND-1))
+
+# Check for required arguments
+if [ -z "$OUTPUT_DIR" ] || [ -z "$SCRIPT_DIR" ] || [ -z "$POD5_DIR" ]; then
+    echo "ERROR: Missing required arguments."
+    usage
+fi
+
+# Make directories
+LOG_FILE="$OUTPUT_DIR/pipeline_setup.log"
+mkdir -p "$OUTPUT_DIR"
+
+# Function to log setup progress to a file.
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
+
+# This function organizes the input files for parallel processing.
+distribute_pod5_files() {
+    log_message "Preparing workspace in $OUTPUT_DIR..."
+    log_message "Cleaning up any old batch directories..."
+    find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 -type d -name "batch_*" -exec rm -rf {} +
+
+    log_message "Locating .pod5 files in $POD5_DIR..."
+    mapfile -t all_files < <(find "$POD5_DIR" -type f -name "*.pod5")
+    local file_count=${#all_files[@]}
+    if [ "$file_count" -eq 0 ]; then
+        echo "FATAL ERROR: No .pod5 files found in $POD5_DIR. Exiting."
+        exit 1
+    fi
+    log_message "Found $file_count .pod5 files. Distributing into $NUM_BATCHES batches..."
+
+    # Create symbolic links to distribute files into batches without copying them.
+    local i=0
+    for file_path in "${all_files[@]}"; do
+        local batch_num=$(( (i % NUM_BATCHES) + 1 ))
+        local target_dir="$OUTPUT_DIR/$(printf "batch_%02d" $batch_num)/input"
+        mkdir -p "$target_dir"
+        ln -s "$file_path" "$target_dir/"
+        i=$((i+1))
+    done
+    log_message "File distribution complete."
+}
+
+# This function creates a mapping file that tells each parallel job which batch to work on.
+create_mapping_file() {
+    local map_file="$OUTPUT_DIR/directory_mapping.txt"
+    log_message "Creating job-to-directory mapping file..."
+    rm -f "$map_file"
+    local count=1
+    for dir in $(find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 -type d -name "batch_*" | sort -V); do
+        if [ -d "$dir/input" ]; then
+            echo "$count $(basename "$dir")" >> "$map_file"
+            count=$((count + 1))
+        fi
+    done
+}
+
+# --- MAIN SCRIPT EXECUTION ---
+
+echo "--- Starting Dorado Pipeline Setup ---"
+distribute_pod5_files
+create_mapping_file
+
+mkdir -p slurm_logs
+
+# Submit Stage 1: A parallel job array for basecalling.
+echo "Submitting Stage 1: Parallel Basecalling Jobs..."
+JOB_ID_1=$(sbatch \
+    --export=ALL,OUTPUT_DIR="$OUTPUT_DIR" \
+    --parsable \
+    --array=1-${NUM_BATCHES}%${MAX_CONCURRENT_JOBS} \
+    "$SCRIPT_DIR/basecaller_rna_array.sbatch")
+
+if [ $? -ne 0 ]; then echo "FATAL ERROR: Failed to submit Stage 1 jobs."; exit 1; fi
+echo "--> Stage 1 submitted with Job Array ID: $JOB_ID_1"
+
+# Submit Stage 2: A single job that waits for all of Stage 1 to finish successfully.
+echo "Submitting Stage 2: Merge Job (will wait for Stage 1)..."
+JOB_ID_2=$(sbatch \
+    --export=ALL,OUTPUT_DIR="$OUTPUT_DIR" \
+    --parsable \
+    --dependency=afterok:$JOB_ID_1 \
+    "$SCRIPT_DIR/merge.sbatch")
+
+if [ $? -ne 0 ]; then echo "FATAL ERROR: Failed to submit Stage 2 job."; exit 1; fi
+echo "--> Stage 2 submitted with Job ID: $JOB_ID_2"
+echo ""
+echo "--- Pipeline Successfully Submitted ---"
+echo "You can monitor job progress with: squeue -u $USER"
+echo "Detailed setup log is at: $LOG_FILE"

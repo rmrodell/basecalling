@@ -1,7 +1,7 @@
 # basecalling
 Nanopore basecalling scripts for basecalling on Stanford's Sherlock system.
 
-## How to use:  
+## How to use with barcodes 
 ```bash
 bash run_basecaller_sup_pipeline.sh \
   -o <output_directory> \
@@ -18,7 +18,7 @@ This defaults to running super-high-accuracy DNA basecalling with dorado/1.1.0, 
 
 To specifiy the GPU to basecall on, modify the SBATCH part of the basecaller_sup_array.sbatch. Default is as so:
 
-#SBATCH -C '[GPU_GEN:HPR|GPU_GEN:LOV|GPU_GEN:VLT]'
+```#SBATCH -C '[GPU_GEN:HPR|GPU_GEN:LOV|GPU_GEN:VLT]' ```
 
 Which allows basecalling on any GPU in the Hopper, Lovelace, or Voltage generation. These are the top three generations available on Sherlock as of Fall 2025 and should perform basecalling in a speedy manner. Further restricting this list could increase the time it takes for your job to run (as there are less options of GPUs for the job to run on), but there are rumors that the GPU architecture can impact basecalling. If you are doing something highly sensitive to the specific mutations you are reading (direct RNA mismatches), it is likely worth it to restrict to a single GPU (Hopper's are the fastest). If you just need some sequencing reads that are good enough (SHAPE, BID), keeping these settings should be sufficient.
 
@@ -40,6 +40,34 @@ dorado demux --output-dir "$FINAL_RESULTS_DIR" \
     --no-classify \
     "$MERGED_BAM_FILE"
 ```
+
+## How to use without barcodes 
+```bash
+bash run_basecaller_rna_pipeline.sh \
+  -o <output_directory> \
+  -s <script_directory> \
+  -p <pod5_directory> \
+  -b <number_of_batches> \
+  -m <max_number_of_jobs>
+```
+
+This works highly similar to the above, with minor changes:
+- Does not demultiplex barcodes, best used on samples without barcodes
+- Defaults to an older version of the hac model: 0.7.3
+
+Runs two scripts in sequence: basecaller_rna_array.sbatch and merge.sbatch
+
+This defaults to running high-accuracy basecalling with dorado/0.7.3, as set in the basecaller_rna_array.sbatch script.
+
+GPU settings are as described above.
+
+To change any parameters around basecalling (kit, basecalling model, modified bases, etc), update the dorado command in basecaller_sup_array.sbatch. The current command is:
+
+```bash
+dorado basecaller hac "$INPUT_DIR" > "$BAM_OUTPUT_DIR/basecalled.bam"
+```
+
+Basecalling outputs one bam file per batch, which is then merged with samtools into a single bam file merge.sbatch. 
 
 ## Basecalling Job Fails
 
