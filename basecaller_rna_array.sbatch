@@ -4,7 +4,7 @@
 #SBATCH --gpus=1
 #SBATCH -C '[GPU_GEN:HPR|GPU_GEN:LOV|GPU_GEN:VLT]'
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=20G
+#SBATCH --mem=128G
 #SBATCH --time=0-10:00:00
 #SBATCH --output=slurm_logs/basecaller-%A_%a.out
 #SBATCH --error=slurm_logs/basecaller-%A_%a.err
