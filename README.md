@@ -16,6 +16,8 @@ Runs two scripts in sequence: basecaller_sup_array.sbatch and demuxer_merge.sbat
 
 This defaults to running super-high-accuracy DNA basecalling with dorado/1.1.0, as set in the basecaller_sup_array.sbatch script.
 
+Batches are the number of pod5 files that are assigned to a specific job. The script will call the number of jobs (arrays) as specified in the argument `-b <number_of_batches>`. You want approximately 20-25 pod5 files per batch to balance resources. So if you have ~150 pod5 files, you want to split that into 6 batches of 25 pod5 files each.
+
 To specifiy the GPU to basecall on, modify the SBATCH part of the basecaller_sup_array.sbatch. Default is as so:
 
 ```#SBATCH -C '[GPU_GEN:HPR|GPU_GEN:LOV|GPU_GEN:VLT]' ```
