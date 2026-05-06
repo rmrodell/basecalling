@@ -1,6 +1,8 @@
 # basecalling
 Nanopore basecalling scripts for basecalling on Stanford's Sherlock system.
 
+Change the #SBATCH --mail-user line to be your email address in all SBATCH scripts after you have cloned the Git.
+
 ## How to use with barcodes 
 ```bash
 bash run_basecaller_sup_pipeline.sh \
